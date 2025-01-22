@@ -6,7 +6,6 @@ from datetime import datetime
 from dotenv import load_dotenv
 import os
 import numpy as np
-import json
 
 # Load environment variables
 load_dotenv(dotenv_path='.env')
@@ -20,9 +19,8 @@ if not FIREBASE_CREDENTIALS or not FIREBASE_DATABASE_URL:
 if not os.path.isfile(FIREBASE_CREDENTIALS):
     raise FileNotFoundError(f"Firebase credentials file '{FIREBASE_CREDENTIALS}' not found.")
 
-credentials_dict = json.loads(FIREBASE_CREDENTIALS)
 # Initialize Firebase Admin SDK
-cred = credentials.Certificate(credentials_dict)
+cred = credentials.Certificate(FIREBASE_CREDENTIALS)
 firebase_admin.initialize_app(cred, {'databaseURL': FIREBASE_DATABASE_URL})
 
 # Initialize Firestore
@@ -91,53 +89,38 @@ def listener(event):
         print(f"Error processing event: {e}")
 
 def process_buffer(buffer_PPG, buffer_EDA):
-    # Flatten the buffers
-    EDA = []
-    PPG = []
-
-    for i in range(len(buffer_PPG)):
-        for j in range(len(buffer_PPG[i])):
-            PPG.append(buffer_PPG[i][j])
-    
-    for i in range(len(buffer_EDA)):
-        for j in range(len(buffer_EDA[i])):
-            EDA.append(buffer_EDA[i][j])
-
-    print('Processing data...')
     try:
-        # Process the signals
+        # Flatten the buffers
+        PPG = [item for sublist in buffer_PPG for item in sublist]
+        EDA = [item for sublist in buffer_EDA for item in sublist]
+
+        print('Processing data...')
+
+        # Process signals using NeuroKit2
         ppg_elgendi = nk.ppg_clean(PPG, method='elgendi')
         eda_cleaned = nk.eda_clean(EDA, sampling_rate=100, method='neurokit')
 
         signal, _ = nk.ppg_process(ppg_elgendi, sampling_rate=100)
-        # print(signal['PPG_Rate'].tolist())
 
-        
-        # Convert the processed array to a list for Firestore compatibility
-        ppg_elgendi_list = ppg_elgendi.tolist()
-
+        # Convert processed data to Firestore-compatible format
         timestamp = datetime.now().isoformat()
-        # Push the processed data to Firestore
-        firestore_doc['PPG_clean'] = ppg_elgendi_list
-        firestore_doc['EDA_clean'] = eda_cleaned.tolist()
-        firestore_doc['HR'] = signal['PPG_Rate'].tolist()
-        firestore_doc['timestamp'] = timestamp
+
+        firestore_doc.update({
+            'PPG_clean': ppg_elgendi.tolist(),
+            'EDA_clean': eda_cleaned.tolist(),
+            'HR': signal['PPG_Rate'].tolist(),
+            'timestamp': timestamp
+        })
+
         firestore_db.collection('preprocess').document(timestamp).set(firestore_doc)
         print('Processed data pushed to Firestore successfully.')
-        
+
+        # Clear buffers
+        buffer_EDA.clear()
+        buffer_PPG.clear()
+
     except Exception as e:
         print(f'Error processing data: {e}')
-
-
-    # Clear the buffers
-    # del buffer_EDA[:]
-    # del buffer_PPG[:]
-
-    firestore_doc.clear()
-
-    buffer_EDA.pop(0)
-    buffer_PPG.pop(0)
-
 
 # Start listening for database changes
 data_ref.listen(listener)
