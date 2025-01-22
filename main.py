@@ -6,6 +6,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 import os
 import numpy as np
+import json
 
 # Load environment variables
 load_dotenv(dotenv_path='.env')
@@ -19,8 +20,9 @@ if not FIREBASE_CREDENTIALS or not FIREBASE_DATABASE_URL:
 if not os.path.isfile(FIREBASE_CREDENTIALS):
     raise FileNotFoundError(f"Firebase credentials file '{FIREBASE_CREDENTIALS}' not found.")
 
+credentials_dict = json.loads(FIREBASE_CREDENTIALS)
 # Initialize Firebase Admin SDK
-cred = credentials.Certificate(FIREBASE_CREDENTIALS)
+cred = credentials.Certificate(credentials_dict)
 firebase_admin.initialize_app(cred, {'databaseURL': FIREBASE_DATABASE_URL})
 
 # Initialize Firestore
