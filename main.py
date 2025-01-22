@@ -6,22 +6,26 @@ from datetime import datetime
 from dotenv import load_dotenv
 import os
 import numpy as np
+import json
+import base64
 
 # Load environment variables
 load_dotenv()
-FIREBASE_CREDENTIALS = os.getenv('FIREBASE_CREDENTIALS_PATH')
+firebase_credentials_base64 = os.getenv('FIREBASE_CREDENTIALS_BASE64')
 FIREBASE_DATABASE_URL = os.getenv('FIREBASE_DATABASE_URL')
 
-# Validate environment variables
-if not FIREBASE_CREDENTIALS or not FIREBASE_DATABASE_URL:
-    raise ValueError("Missing Firebase credentials or database URL in .env file")
+# # Validate environment variables
+# if not FIREBASE_CREDENTIALS or not FIREBASE_DATABASE_URL:
+#     raise ValueError("Missing Firebase credentials or database URL in .env file")
 
-if not os.path.isfile(FIREBASE_CREDENTIALS):
-    raise FileNotFoundError(f"Firebase credentials file '{FIREBASE_CREDENTIALS}' not found.")
+# if not os.path.isfile(FIREBASE_CREDENTIALS):
+#     raise FileNotFoundError(f"Firebase credentials file '{FIREBASE_CREDENTIALS}' not found.")
 
-
+# Decode the Base64 string and load JSON
+firebase_credentials_json = base64.b64decode(firebase_credentials_base64).decode('utf-8')
+firebase_credentials_dict = json.loads(firebase_credentials_json)
 # Initialize Firebase Admin SDK
-cred = credentials.Certificate(FIREBASE_CREDENTIALS)
+cred = credentials.Certificate(firebase_credentials_dict)
 firebase_admin.initialize_app(cred, {'databaseURL': FIREBASE_DATABASE_URL})
 
 # Initialize Firestore
